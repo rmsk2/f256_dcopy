@@ -24,7 +24,7 @@ BANNER1 .text "******* dcopy: Drive aware file copy *******", 13, 13
 BANNER2 .text "Enter an empty string to reset to BASIC", 13, 13
 TXT_COPIED .text "Blocks copied: "
 
-FILE_ALLOWED .text "abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-./"
+FILE_ALLOWED .text "abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-./:#+~()!&@[]"
 DRIVE_ALLOWED .text "012"
 TXT_FROM_DRIVE .text "From drive: "
 TXT_TO_DRIVE   .text "To drive  : "
