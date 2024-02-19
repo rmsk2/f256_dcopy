@@ -14,6 +14,14 @@ setOutParams .macro name, nameLenAddr, driveAddr
     #setParams FILE_OUT, \name, \nameLenAddr, \driveAddr
 .endmacro
 
+setInFuncs .macro vtbl 
+    #load16BitImmediate \vtbl, file.FILE_IN.vtbl
+.endmacro
+
+setOutFuncs .macro vtbl 
+    #load16BitImmediate \vtbl, file.FILE_OUT.vtbl
+.endmacro
+
 
 file .namespace
 

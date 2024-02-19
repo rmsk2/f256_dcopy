@@ -1,46 +1,8 @@
-MODE_READ = 0
-MODE_WRITE = 1
-BLOCK_SIZE = 128
-
-EOF_REACHED = 1
-EOF_NOT_REACHED = 0
-
-FileState_t .struct cookie, nameAddr, nameLen, dataAddr, dataLen, mode, drive    
-    cookie .byte \cookie
-    streamId .byte ?
-    namePtr .word \nameAddr
-    nameLen .byte \nameLen
-    dataPtr .word \dataAddr
-    dataLen .byte \dataLen
-    mode .byte \mode
-    drive .byte \drive
-    eofReached .byte 0
-.endstruct
-
-openFile .macro name
-    #load16BitImmediate \name, FILEIO_PTR1
-    ldy #FileState_t.streamId
-    lda #0
-    sta (FILEIO_PTR1), y
-    jsr disk.waitOpen
-.endmacro
-
-closeFile .macro name
-    #load16BitImmediate \name, FILEIO_PTR1
-    jsr disk.waitClose
-.endmacro
-
-readBlock .macro name
-    #load16BitImmediate \name, FILEIO_PTR1
-    jsr disk.waitReadBlock
-.endmacro
-
-writeBlock .macro name
-    #load16BitImmediate \name, FILEIO_PTR1    
-    jsr disk.waitWriteBlock
-.endmacro
 
 disk .namespace
+
+FileTable .dstruct Vtbl_t, disk.waitOpen, disk.waitClose, disk.waitReadBlock, disk.waitWriteBlock
+
 
 eventStub .macro
 _retry 

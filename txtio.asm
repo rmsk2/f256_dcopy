@@ -1,6 +1,7 @@
 CURSOR_X = $D014
 CURSOR_Y = $D016
 CARRIAGE_RETURN = 13
+CTRL_C = 3
 BACK_SPACE = 8
 ; Change to $DE04 when building for a F256 Jr. Rev B using factory settings
 MUL_RES_CO_PROC = $DE10
@@ -598,6 +599,8 @@ getString
 _inputLoop
     jsr waitForKey
 
+    cmp #CTRL_C
+    beq _doneInterrupt                         ; Control+C we are done
     cmp #CARRIAGE_RETURN                       ; CR 
     beq _inputDone                             ; => We are done
     cmp #BACK_SPACE                            ; DELETE
@@ -624,6 +627,12 @@ _delete
 _inputDone
     jsr cursorOff                            
     lda INPUT_STATE.index_output               ; load length of target buffer in accu    
+    clc
+    rts
+_doneInterrupt
+    jsr cursorOff
+    lda #0
+    sec
     rts
 
 

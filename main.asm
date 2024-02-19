@@ -9,6 +9,7 @@ jmp main
 .include "khelp.asm"
 .include "zeropage.asm"
 .include "macros.asm"
+.include "ifile.asm"
 .include "diskio.asm"
 .include "filetools.asm"
 .include "txtio.asm"
@@ -21,7 +22,8 @@ FROM_LEN   .byte ?
 TO_LEN     .byte ?
 
 BANNER1 .text "******* dcopy: Drive aware file copy *******", 13, 13
-BANNER2 .text "Enter an empty string to reset to BASIC", 13, 13
+BANNER2 .text "Enter an empty string to reset to BASIC", 13
+BANNER3 .text "Press RUN/STOP or Control+C to abort and restart", 13, 13
 TXT_COPIED .text "Blocks copied: "
 
 FILE_ALLOWED .text "abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-./:#+~()!&@[]"
@@ -114,12 +116,16 @@ main
 
     #printString BANNER1, len(BANNER1)
     #printString BANNER2, len(BANNER2)
+    #printString BANNER3, len(BANNER3)
 
 _nextCopy
     stz BLOCK_DONE
     #printString TXT_FROM_DRIVE, len(TXT_FROM_DRIVE)
     #toRev
     #inputString FROM_DRIVE, 1, DRIVE_ALLOWED, 3
+    bcc _checkz1
+    jmp _cont1
+_checkz1
     cmp #0
     bne _next1
     jmp _end
@@ -130,6 +136,9 @@ _next1
     #printString TXT_FROM, len(TXT_FROM)
     #toRev
     #inputString FROM_NAME, FILE_MAX_LEN, FILE_ALLOWED, len(FILE_ALLOWED)
+    bcc _checkz2
+    jmp _cont1
+_checkz2
     cmp #0
     bne _next2
     jmp _end
@@ -141,6 +150,9 @@ _next2
     #printString TXT_TO_DRIVE, len(TXT_TO_DRIVE)
     #toRev
     #inputString TO_DRIVE, 1, DRIVE_ALLOWED, 3
+    bcc _checkz3
+    jmp _cont1
+_checkz3
     cmp #0
     bne _next3
     jmp _end
@@ -151,6 +163,9 @@ _next3
     #printString TXT_TO, len(TXT_TO)
     #toRev
     #inputString TO_NAME, FILE_MAX_LEN, FILE_ALLOWED, len(FILE_ALLOWED)
+    bcc _checkz4
+    jmp _cont1
+_checkz4
     cmp #0
     bne _next4
     jmp _end
@@ -164,6 +179,8 @@ _next4
     #prepDrive FROM_DRIVE
     #prepDrive TO_DRIVE
 
+    #setInFuncs disk.FileTable
+    #setOutFuncs disk.FileTable
     #setInParams FROM_NAME, FROM_LEN, FROM_DRIVE
     #setOutParams TO_NAME, TO_LEN, TO_DRIVE
     jsr file.copy
@@ -172,6 +189,7 @@ _next4
     jsr txtio.newLine    
     #printString OK, len(OK)
 _cont1
+    #noRev
     jsr txtio.newLine
     jsr txtio.newLine
     jmp _nextCopy
