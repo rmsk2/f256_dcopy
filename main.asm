@@ -11,6 +11,7 @@ jmp main
 .include "macros.asm"
 .include "ifile.asm"
 .include "diskio.asm"
+.include "uart.asm"
 .include "filetools.asm"
 .include "txtio.asm"
 
