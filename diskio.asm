@@ -3,7 +3,6 @@ disk .namespace
 
 FileTable .dstruct Vtbl_t, disk.waitOpen, disk.waitClose, disk.waitReadBlock, disk.waitWriteBlock
 
-
 eventStub .macro
 _retry 
     ; Peek at the queue to see if anything is pending
