@@ -201,7 +201,6 @@ _next4
     jsr txtio.newLine    
     #printString OK, len(OK)
 _cont1
-    #noRev
     jsr txtio.newLine
     jsr txtio.newLine
     jmp _nextCopy
