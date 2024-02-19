@@ -26,6 +26,7 @@ BANNER1 .text "******* dcopy: Drive aware file copy *******", 13, 13
 BANNER2 .text "Enter an empty string to reset to BASIC", 13
 BANNER3 .text "Press RUN/STOP or Control+C to abort and restart", 13, 13
 TXT_COPIED .text "Blocks copied: "
+TXT_ABORTED .text "Aborted!"
 
 FILE_ALLOWED .text "abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-./:#+~()!&@[]"
 DRIVE_ALLOWED .text "012"
@@ -99,6 +100,12 @@ setupSystem
 
     rts
 
+entryAborted
+    #noRev
+    jsr txtio.newLine
+    #printString TXT_ABORTED, len(TXT_ABORTED)
+    rts
+
 ; --------------------------------------------------
 ; This routine is the entry point of the program
 ;--------------------------------------------------
@@ -125,6 +132,7 @@ _nextCopy
     #toRev
     #inputString FROM_DRIVE, 1, DRIVE_ALLOWED, 3
     bcc _checkz1
+    jsr entryAborted
     jmp _cont1
 _checkz1
     cmp #0
@@ -138,6 +146,7 @@ _next1
     #toRev
     #inputString FROM_NAME, FILE_MAX_LEN, FILE_ALLOWED, len(FILE_ALLOWED)
     bcc _checkz2
+    jsr entryAborted
     jmp _cont1
 _checkz2
     cmp #0
@@ -152,6 +161,7 @@ _next2
     #toRev
     #inputString TO_DRIVE, 1, DRIVE_ALLOWED, 3
     bcc _checkz3
+    jsr entryAborted
     jmp _cont1
 _checkz3
     cmp #0
@@ -165,6 +175,7 @@ _next3
     #toRev
     #inputString TO_NAME, FILE_MAX_LEN, FILE_ALLOWED, len(FILE_ALLOWED)
     bcc _checkz4
+    jsr entryAborted
     jmp _cont1
 _checkz4
     cmp #0
