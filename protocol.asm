@@ -5,12 +5,13 @@ BLOCK_T_DATA_LAST     = 2
 BLOCK_T_OPEN_SEND     = 3
 BLOCK_T_OPEN_RECEIVE  = 4
 BLOCK_T_CLOSE         = 5
-BLOCK_T_NEXT_BLOCK    = 6
+BLOCK_T_BLOCK_NEXT    = 6
 BLOCK_T_BLOCK_RETRANS = 7
+BLOCK_T_ANSWER        = 8
 
-RESULT_T_OK = 0
-RESULT_T_RETRANSMIT = 1
-RESULT_T_FAILURE = 2
+RESULT_OK = 0
+RESULT_RETRANSMIT = 1
+RESULT_FAILURE = 2
 
 protocol .namespace
 
@@ -44,7 +45,8 @@ RequestBlock_t .struct
 .endstruct
 
 AnswerBlock_t .struct
-    resultType .byte ?
+    blockType  .byte BLOCK_T_ANSWER
+    result     .byte ?
     checkSum   .word ?
 .endstruct
 
@@ -115,7 +117,10 @@ transactBlockSendCall
     cmp #len(Buffer.answerBlock)
     bne _doneError
     lda Buffer
-    cmp #RESULT_T_OK
+    cmp #BLOCK_T_ANSWER
+    bne _doneError
+    lda Buffer.answerBlock.result
+    cmp #RESULT_OK
     bne _doneError
     clc
     rts
@@ -147,7 +152,7 @@ closeConnection
     rts
 
 receiveBlock
-    lda #BLOCK_T_NEXT_BLOCK
+    lda #BLOCK_T_BLOCK_NEXT
     sta Buffer
     lda #len(Buffer.requestBlock)
     sta UART_LEN
