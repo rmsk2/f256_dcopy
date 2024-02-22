@@ -160,6 +160,14 @@ receiveBlock
     bcs _doneError
     jsr uart.receiveFrame
     bcs _doneError
+    lda Buffer
+    cmp #BLOCK_T_DATA
+    beq _copyData
+    cmp #BLOCK_T_DATA_LAST
+    beq _copyData
+    sec
+    jmp _doneError
+_copyData
     #load16BitImmediate Buffer.dataBlock.data, TEMP_PTR
     #moveWord FileState_t, dataPtr, TEMP_PTR2
     lda Buffer.dataBlock.dataLen
