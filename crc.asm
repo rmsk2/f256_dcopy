@@ -57,7 +57,7 @@ calc
     jsr reset
     ldy #0
 loop    
-    lda (crc_ptr1), y
+    lda (CRC_PTR1), y
     jsr updcrc
     iny
     cpy DATA_LEN
