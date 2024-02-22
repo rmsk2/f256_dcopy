@@ -61,6 +61,11 @@ initUart .macro baudRate
 
 uart .namespace
 
+; This needs to be a zero page address
+FRAME_PTR = UART_PTR
+; This can be anywhere in memory
+FRAME_LEN = UART_LEN
+
 
 ; ******************** BEWARE ********************
 ; These routines are probably inefficient as they are synchronous and make 
@@ -128,12 +133,6 @@ receiveByte
 _recError
     sec
     rts
-
-
-; This needs to be a zero page address
-FRAME_PTR = UART_PTR
-; This can be anywhere in memory
-FRAME_LEN = UART_LEN
 
 ; --------------------------------------------------
 ; This macro sets up the parameters necessary to call the routine

@@ -38,6 +38,10 @@ NAME_DUMMY .text "sjdkfhZF65.tst"
 FILE_IN .dstruct FileState_t, 76, NAME_DUMMY, len(NAME_DUMMY), BUFFER, BLOCK_SIZE, MODE_READ, 1
 FILE_OUT .dstruct FileState_t, 176, NAME_DUMMY, len(NAME_DUMMY), BUFFER, BLOCK_SIZE, MODE_WRITE, 0
 
+waslastBlock
+    lda COPY_DONE
+    rts
+
 BUFFER .fill BLOCK_SIZE
 COPY_DONE .byte 0
 ; carry set when error occured

@@ -11,7 +11,7 @@ jmp main
 .include "macros.asm"
 .include "ifile.asm"
 .include "diskio.asm"
-.include "uart.asm"
+.include "protocol.asm"
 .include "filetools.asm"
 .include "txtio.asm"
 
@@ -22,6 +22,7 @@ TO_DRIVE   .byte 1
 FROM_LEN   .byte ?
 TO_LEN     .byte ?
 
+CAPITAL_S = 83
 BANNER1 .text "******* dcopy: Drive aware file copy *******", 13, 13
 BANNER2 .text "Enter an empty string to reset to BASIC", 13
 BANNER3 .text "Press RUN/STOP or Control+C to abort and restart", 13, 13
@@ -29,7 +30,7 @@ TXT_COPIED .text "Blocks copied: "
 TXT_ABORTED .text "Aborted!"
 
 FILE_ALLOWED .text "abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-./:#+~()!&@[]"
-DRIVE_ALLOWED .text "012"
+DRIVE_ALLOWED .text "012S"
 TXT_FROM_DRIVE .text "From drive: "
 TXT_TO_DRIVE   .text "To drive  : "
 TXT_FROM .text       "From file : "
@@ -130,7 +131,7 @@ _nextCopy
     stz BLOCK_DONE
     #printString TXT_FROM_DRIVE, len(TXT_FROM_DRIVE)
     #toRev
-    #inputString FROM_DRIVE, 1, DRIVE_ALLOWED, 3
+    #inputString FROM_DRIVE, 1, DRIVE_ALLOWED, len(DRIVE_ALLOWED)
     bcc _checkz1
     jsr entryAborted
     jmp _cont1
@@ -159,7 +160,7 @@ _next2
 
     #printString TXT_TO_DRIVE, len(TXT_TO_DRIVE)
     #toRev
-    #inputString TO_DRIVE, 1, DRIVE_ALLOWED, 3
+    #inputString TO_DRIVE, 1, DRIVE_ALLOWED, len(DRIVE_ALLOWED)
     bcc _checkz3
     jsr entryAborted
     jmp _cont1
@@ -188,11 +189,40 @@ _next4
     jsr txtio.newLine
     #printString TXT_COPIED, len(TXT_COPIED)
 
+    ; not both drives can be serial device
+    lda FROM_DRIVE
+    cmp #CAPITAL_S
+    bne _drivesOK
+    cmp TO_DRIVE
+    bne _drivesOK
+    jmp _error                                          ; both devices are serial => error
+_drivesOK
+
+    ; set funcs for source drive
+    lda FROM_DRIVE
+    cmp #CAPITAL_S
+    bne _setFromNormal
+    jsr protocol.init
+    #setInFuncs protocol.SerialTable
+    bra _nextDrive
+_setFromNormal
+    #setInFuncs disk.FileTable
+
+    ; set funcs for target drive
+_nextDrive
+    lda TO_DRIVE
+    cmp #CAPITAL_S
+    bne _setToNormal
+    jsr protocol.init
+    #setOutFuncs protocol.SerialTable
+    bra _goon1
+_setToNormal
+    #setOutFuncs disk.FileTable
+_goon1
+
     #prepDrive FROM_DRIVE
     #prepDrive TO_DRIVE
 
-    #setInFuncs disk.FileTable
-    #setOutFuncs disk.FileTable
     #setInParams FROM_NAME, FROM_LEN, FROM_DRIVE
     #setOutParams TO_NAME, TO_LEN, TO_DRIVE
     jsr file.copy

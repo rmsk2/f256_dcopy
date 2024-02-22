@@ -1,7 +1,7 @@
 
 disk .namespace
 
-FileTable .dstruct Vtbl_t, disk.waitOpen, disk.waitClose, disk.waitReadBlock, disk.waitWriteBlock
+FileTable .dstruct Vtbl_t, waitOpen, waitClose, waitReadBlock, waitWriteBlock
 
 eventStub .macro
 _retry 
