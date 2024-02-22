@@ -1,10 +1,10 @@
-;ZP_STATE_PTR = $b0;$b1
+CRC = $b0;$b1
 TXT_PTR1 = $b2;/$b3
 TXT_PTR2 = $b4;/$b5
 TXT_PTR3 = $b6;/$b7
 TXT_PTR4 = $b8;/$b9
 TXT_PTR5 = $ba;/$bb
-;TXT_DRAW_PTR1 = $bc;/$bd
+CRC_PTR1 = $bc;/$bd
 UART_PTR = $be;/$bf
 UART_LEN = $c0;/$c1
 TEMP_PTR = $c2;/$c3

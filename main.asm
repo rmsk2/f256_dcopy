@@ -8,6 +8,7 @@ jmp main
 
 .include "khelp.asm"
 .include "zeropage.asm"
+.include "crc.asm"
 .include "macros.asm"
 .include "ifile.asm"
 .include "diskio.asm"
@@ -113,6 +114,7 @@ entryAborted
 main    
     jsr initEvents
     jsr setupSystem
+    jsr crc16.init
 
     jsr txtio.init
     #setCol COL
