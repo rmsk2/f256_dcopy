@@ -20,6 +20,10 @@ init
     #initUart BPS_115200
     rts
 
+Generic_t .struct 
+    type .byte ?
+.endstruct
+
 DataBlock_t .struct
     blockType .byte BLOCK_T_DATA
     dataLen   .byte ?
@@ -50,7 +54,8 @@ AnswerBlock_t .struct
     checkSum   .word ?
 .endstruct
 
-Blocks_t .union 
+Blocks_t .union
+    generic      .dstruct Generic_t
     dataBlock    .dstruct DataBlock_t
     openBlock    .dstruct OpenBlock_t
     closeBlock   .dstruct CloseBlock_t
@@ -94,7 +99,7 @@ loadByte .macro s, component
 
 transactBlockSendAddr .macro blockStruct, blockType
     lda \blockType
-    sta Buffer
+    sta Buffer.generic.type
     lda #len(Buffer.\blockStruct)
     sta UART_LEN
     jsr transactBlockSendCall
@@ -102,7 +107,7 @@ transactBlockSendAddr .macro blockStruct, blockType
 
 transactBlockSend .macro blockStruct, blockType
     lda #\blockType
-    sta Buffer
+    sta Buffer.generic.type
     lda #len(Buffer.\blockStruct)
     sta UART_LEN
     jsr transactBlockSendCall
@@ -116,7 +121,7 @@ transactBlockSendCall
     lda UART_LEN
     cmp #len(Buffer.answerBlock)
     bne _doneError
-    lda Buffer
+    lda Buffer.generic.type
     cmp #BLOCK_T_ANSWER
     bne _doneError
     lda Buffer.answerBlock.result
@@ -153,14 +158,14 @@ closeConnection
 
 receiveBlock
     lda #BLOCK_T_BLOCK_NEXT
-    sta Buffer
+    sta Buffer.generic.type
     lda #len(Buffer.requestBlock)
     sta UART_LEN
     jsr uart.sendFrame
     bcs _doneError
     jsr uart.receiveFrame
     bcs _doneError
-    lda Buffer
+    lda Buffer.generic.type
     cmp #BLOCK_T_DATA
     beq _copyData
     cmp #BLOCK_T_DATA_LAST
