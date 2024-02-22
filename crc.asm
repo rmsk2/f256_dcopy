@@ -58,7 +58,7 @@ calc
     ldy #0
 loop    
     lda (CRC_PTR1), y
-    jsr updcrc
+    jsr updCrc
     iny
     cpy DATA_LEN
     bne loop
