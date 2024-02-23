@@ -1,3 +1,40 @@
+; calcCRC .macro addr, lenAddr, targetAddr
+;     #load16BitImmediate \addr, CRC_PTR1
+;     lda \lenAddr
+;     jsr crc16.calc
+;     lda CRC
+;     sta \targetAddr
+;     lda CRC+1
+;     sta \targetAddr+1
+; .endmacro
+
+calcCRCImmediate .macro addr, len, targetAddr
+    #load16BitImmediate \addr, CRC_PTR1
+    lda #\len
+    jsr crc16.calc
+    lda CRC
+    sta \targetAddr
+    lda CRC+1
+    sta \targetAddr+1
+.endmacro
+
+verifyCRCImmediate .macro addr, len, refAddr
+    #load16BitImmediate \addr, CRC_PTR1
+    lda #\len
+    jsr crc16.calc
+    lda CRC
+    cmp \refAddr
+    bne _crcError
+    lda CRC+1
+    cmp \refAddr+1
+    bne _crcError
+    clc
+    bra _end
+_crcError
+    sec
+_end
+.endmacro
+
 crc16 .namespace
 
 ; Taken from http://6502.org/source/integers/crc.htm

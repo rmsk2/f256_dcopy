@@ -61,11 +61,6 @@ initUart .macro baudRate
 
 uart .namespace
 
-; This needs to be a zero page address
-FRAME_PTR = UART_PTR
-; This can be anywhere in memory
-FRAME_LEN = UART_LEN
-
 
 ; ******************** BEWARE ********************
 ; These routines are probably inefficient as they are synchronous and make 
@@ -139,9 +134,9 @@ _recError
 ; sendFrame.
 ; --------------------------------------------------
 sendBuffer .macro bufferAddr, bufferLen
-    #load16BitImmediate \bufferAddr, FRAME_PTR
+    #load16BitImmediate \bufferAddr, UART_PTR_SEND
     lda #\bufferLen
-    sta FRAME_LEN
+    sta UART_LEN_SEND
     jsr sendFrame
 .endmacro
 
@@ -151,27 +146,27 @@ sendBuffer .macro bufferAddr, bufferLen
 ; receiveFrame.
 ; --------------------------------------------------
 receiveBuffer .macro bufferAddr
-    #load16BitImmediate \bufferAddr, FRAME_PTR
+    #load16BitImmediate \bufferAddr, UART_PTR_RECV
     jsr receiveFrame
 .endmacro
 
 
 ; --------------------------------------------------
-; This routine sends the data of len FRAME_LEN which is stored at the address
-; to which FRAME_PTR points over the serial line. FRAME_LEN can be at most 0xFF.
+; This routine sends the data of len UART_LEN_SEND which is stored at the address
+; to which UART_PTR_SEND points over the serial line. UART_LEN_SEND can be at most 0xFF.
 ;
 ; If an error occurred the carry flag is set. It is clear otherwise.
 ; --------------------------------------------------
 sendFrame
-    lda FRAME_LEN
+    lda UART_LEN_SEND
     jsr sendByte
     bcs _sendEnd
 
     ldy #0
 _sendNext
-    cpy FRAME_LEN
+    cpy UART_LEN_SEND
     bcs _sendDone
-    lda (FRAME_PTR), y
+    lda (UART_PTR_SEND), y
     jsr sendByte
     bcs _sendEnd
     iny
@@ -183,23 +178,23 @@ _sendEnd
 
 
 ; --------------------------------------------------
-; This routine received data over the serial line. The data length is stored in FRAME_LEN.
-; The data itself is written to the address to which FRAME_PTR points.
+; This routine received data over the serial line. The data length is stored in UART_LEN_RECV.
+; The data itself is written to the address to which UART_PTR_RECV points.
 ;
 ; If an error occurred the carry flag is set. It is clear otherwise.
 ; --------------------------------------------------
 receiveFrame
     jsr receiveByte
     bcs _receiveEnd
-    sta FRAME_LEN
+    sta UART_LEN_RECV
 
     ldy #0
 _receiveNext
-    cpy FRAME_LEN
+    cpy UART_LEN_RECV
     bcs _receiveDone
     jsr receiveByte
     bcs _receiveEnd
-    sta (FRAME_PTR), y
+    sta (UART_PTR_RECV), y
     iny
     bra _receiveNext
 _receiveDone

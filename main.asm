@@ -24,9 +24,10 @@ FROM_LEN   .byte ?
 TO_LEN     .byte ?
 
 CAPITAL_S = 83
-BANNER1 .text "******* dcopy: Drive aware file copy *******", 13, 13
-BANNER2 .text "Enter an empty string to reset to BASIC", 13
-BANNER3 .text "Press RUN/STOP or Control+C to abort and restart", 13, 13
+BANNER1 .text "******* dcopy: Drive aware file copy 0.9.0 *******", 13, 13
+BANNER2 .text "Enter an empty string to abort and restart", 13
+BANNER3 .text "Press RUN/STOP or Control+C to reset to BASIC", 13
+BANNER4 .text "If you want to use the serial device, start the server now!", 13, 13
 TXT_COPIED .text "Blocks copied: "
 TXT_ABORTED .text "Aborted!"
 
@@ -128,6 +129,7 @@ main
     #printString BANNER1, len(BANNER1)
     #printString BANNER2, len(BANNER2)
     #printString BANNER3, len(BANNER3)
+    #printString BANNER4, len(BANNER4)
 
 _nextCopy
     stz BLOCK_DONE
@@ -135,12 +137,12 @@ _nextCopy
     #toRev
     #inputString FROM_DRIVE, 1, DRIVE_ALLOWED, len(DRIVE_ALLOWED)
     bcc _checkz1
-    jsr entryAborted
-    jmp _cont1
+    jmp _end
 _checkz1
     cmp #0
     bne _next1
-    jmp _end
+    jsr entryAborted
+    jmp _cont1
 _next1
     #noRev
     jsr txtio.newLine
@@ -149,12 +151,12 @@ _next1
     #toRev
     #inputString FROM_NAME, FILE_MAX_LEN, FILE_ALLOWED, len(FILE_ALLOWED)
     bcc _checkz2
-    jsr entryAborted
-    jmp _cont1
+    jmp _end
 _checkz2
     cmp #0
     bne _next2
-    jmp _end
+    jsr entryAborted
+    jmp _cont1
 _next2
     sta FROM_LEN
     #noRev
@@ -164,12 +166,12 @@ _next2
     #toRev
     #inputString TO_DRIVE, 1, DRIVE_ALLOWED, len(DRIVE_ALLOWED)
     bcc _checkz3
-    jsr entryAborted
-    jmp _cont1
+    jmp _end
 _checkz3
     cmp #0
     bne _next3
-    jmp _end
+    jsr entryAborted
+    jmp _cont1
 _next3
     #noRev    
     jsr txtio.newLine
@@ -178,12 +180,12 @@ _next3
     #toRev
     #inputString TO_NAME, FILE_MAX_LEN, FILE_ALLOWED, len(FILE_ALLOWED)
     bcc _checkz4
-    jsr entryAborted
-    jmp _cont1
+    jmp _end
 _checkz4
     cmp #0
     bne _next4
-    jmp _end
+    jsr entryAborted
+    jmp _cont1
 _next4
     sta TO_LEN
     #noRev

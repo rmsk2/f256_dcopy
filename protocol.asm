@@ -16,7 +16,8 @@ RESULT_FAILURE = 2
 protocol .namespace
 
 init
-    #load16BitImmediate Buffer, UART_PTR
+    #load16BitImmediate BUFFER_SEND, UART_PTR_SEND
+    #load16BitImmediate BUFFER_RECV, UART_PTR_RECV
     #initUart BPS_115200
     rts
 
@@ -65,7 +66,8 @@ Blocks_t .union
 
 SerialTable .dstruct Vtbl_t, openConnection, closeConnection, receiveBlock, sendBlock
 
-Buffer .dunion Blocks_t
+BUFFER_SEND .dunion Blocks_t
+BUFFER_RECV .dunion Blocks_t
 
 DATA_LEN .byte 0
 memcpyCall
@@ -99,17 +101,19 @@ loadByte .macro s, component
 
 transactBlockSendAddr .macro blockStruct, blockType
     lda \blockType
-    sta Buffer.generic.type
-    lda #len(Buffer.\blockStruct)
-    sta UART_LEN
+    sta BUFFER_SEND.generic.type
+    lda #len(BUFFER_SEND.\blockStruct)
+    sta UART_LEN_SEND
+    #calcCRCImmediate BUFFER_SEND, len(BUFFER_SEND.\blockStruct)-2, BUFFER_SEND.\blockStruct.checkSum
     jsr transactBlockSendCall
 .endmacro
 
 transactBlockSend .macro blockStruct, blockType
     lda #\blockType
-    sta Buffer.generic.type
-    lda #len(Buffer.\blockStruct)
-    sta UART_LEN
+    sta BUFFER_SEND.generic.type
+    lda #len(BUFFER_SEND.\blockStruct)
+    sta UART_LEN_SEND
+    #calcCRCImmediate BUFFER_SEND, len(BUFFER_SEND.\blockStruct)-2, BUFFER_SEND.\blockStruct.checkSum
     jsr transactBlockSendCall
 .endmacro
 
@@ -118,15 +122,21 @@ transactBlockSendCall
     bcs _doneError
     jsr uart.receiveFrame
     bcs _doneError
-    lda UART_LEN
-    cmp #len(Buffer.answerBlock)
+    #verifyCRCImmediate BUFFER_RECV, len(BUFFER_RECV.answerBlock)-2, BUFFER_RECV.answerBlock.checkSum
+    bcs _doneError
+    lda UART_LEN_RECV
+    cmp #len(BUFFER_RECV.answerBlock)
     bne _doneError
-    lda Buffer.generic.type
+    lda BUFFER_RECV.generic.type
     cmp #BLOCK_T_ANSWER
     bne _doneError
-    lda Buffer.answerBlock.result
+    lda BUFFER_RECV.answerBlock.result
     cmp #RESULT_OK
+    beq _doneOK
+    cmp #RESULT_RETRANSMIT
     bne _doneError
+    bra transactBlockSendCall
+_doneOK
     clc
     rts
 _doneError
@@ -136,9 +146,9 @@ _doneError
 openConnection
     ; Copy file name of file struct to Buffer.openBlock
     #moveWord FileState_t, namePtr, TEMP_PTR
-    #load16BitImmediate Buffer.openBlock.fileName, TEMP_PTR2
+    #load16BitImmediate BUFFER_SEND.openBlock.fileName, TEMP_PTR2
     #loadByte FileState_t, nameLen
-    sta Buffer.openBlock.nameLen                        ; store file name length in open struct
+    sta BUFFER_SEND.openBlock.nameLen                   ; store file name length in open struct
     jsr memcpyCall                                      ; copy file name
 
     #loadByte FileState_t, mode                         ; check open for receive or send
@@ -158,14 +168,21 @@ closeConnection
 
 receiveBlock
     lda #BLOCK_T_BLOCK_NEXT
-    sta Buffer.generic.type
-    lda #len(Buffer.requestBlock)
-    sta UART_LEN
+_sendAgain
+    sta BUFFER_SEND.generic.type
+    lda #len(BUFFER_SEND.requestBlock)
+    sta UART_LEN_SEND
+    #calcCRCImmediate BUFFER_SEND, len(BUFFER_SEND.requestBlock)-2, BUFFER_SEND.requestBlock.checkSum
     jsr uart.sendFrame
     bcs _doneError
     jsr uart.receiveFrame
     bcs _doneError
-    lda Buffer.generic.type
+    #verifyCRCImmediate BUFFER_RECV, len(BUFFER_RECV.dataBlock)-2, BUFFER_RECV.dataBlock.checkSum
+    bcc _processBlock
+    lda #BLOCK_T_BLOCK_RETRANS
+    bra _sendAgain
+_processBlock
+    lda BUFFER_RECV.generic.type
     cmp #BLOCK_T_DATA
     beq _copyData
     cmp #BLOCK_T_DATA_LAST
@@ -173,16 +190,16 @@ receiveBlock
     sec
     jmp _doneError
 _copyData
-    #load16BitImmediate Buffer.dataBlock.data, TEMP_PTR
+    #load16BitImmediate BUFFER_RECV.dataBlock.data, TEMP_PTR
     #moveWord FileState_t, dataPtr, TEMP_PTR2
-    lda Buffer.dataBlock.dataLen
+    lda BUFFER_RECV.dataBlock.dataLen
     jsr memcpyCall
     lda #BLOCK_SIZE
     sec
-    sbc Buffer.dataBlock.dataLen
+    sbc BUFFER_RECV.dataBlock.dataLen
     ldy #FileState_t.dataLen
     sta (FILEIO_PTR1), y
-    lda Buffer.dataBlock.blockType
+    lda BUFFER_RECV.dataBlock.blockType
     cmp #BLOCK_T_DATA_LAST
     beq _setEof
     lda #EOF_NOT_REACHED
@@ -205,9 +222,9 @@ sendBlock
     lda #BLOCK_T_DATA
     sta DATA_BLOCK_TYPE
     #moveWord FileState_t, dataPtr, TEMP_PTR
-    #load16BitImmediate Buffer.dataBlock.data, TEMP_PTR2
+    #load16BitImmediate BUFFER_SEND.dataBlock.data, TEMP_PTR2
     #loadByte FileState_t, dataLen
-    sta Buffer.dataBlock.dataLen
+    sta BUFFER_SEND.dataBlock.dataLen
     jsr memcpyCall
     jsr file.waslastBlock
     beq _doTransact
