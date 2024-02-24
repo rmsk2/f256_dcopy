@@ -1,3 +1,4 @@
+import sys
 import serial
 import binascii
 
@@ -15,6 +16,11 @@ BLOCK_T_ANSWER        = 8
 RESULT_OK = 0
 RESULT_RETRANSMIT = 1
 RESULT_FAILURE = 2
+
+STATE_NAME_WAIT_OPEN = "WaitOpen"
+STATE_NAME_OPENED = "Opened"
+STATE_NAME_CLOSING = "Closing"
+STATE_NAME_END = "Done"
 
 class Block:
     def __init__(self, id):
@@ -79,7 +85,7 @@ class BaseBlockData(Block):
             self.__data = d[:BLOCK_SIZE]
     
     def encode(self):
-        return bytes([self.id, len(self.data)] + self.data + ([0] * (BLOCK_SIZE - len(self.data))))
+        return bytes([self.id, len(self.data)]) + self.data + bytes([0] * (BLOCK_SIZE - len(self.data)))
 
     def decode(self, data):
         if len(data) != (BLOCK_SIZE + 2):
@@ -96,16 +102,6 @@ class BaseBlockData(Block):
         self.data = data[2: 2 + data_len]
 
         return True
-
-
-class BlockData(BaseBlockData):
-    def __init__(self):
-        super().__init__(BLOCK_T_DATA)
-
-
-class BlockLastData(BaseBlockData):
-    def __init__(self):
-        super().__init__(BLOCK_T_DATA_LAST)
 
 
 class BaseBlockOpen(Block):
@@ -147,16 +143,6 @@ class BaseBlockOpen(Block):
         return True        
 
 
-class BlockOpenSend(BaseBlockOpen):
-    def __init__(self):
-        super().__init__(BLOCK_T_OPEN_SEND)
-
-
-class BlockOpenReceive(BaseBlockOpen):
-    def __init__(self):
-        super().__init__(BLOCK_T_OPEN_RECEIVE)
-
-
 class TaggedBlock(Block):
     def __init__(self, id):
         super().__init__(id)
@@ -175,25 +161,10 @@ class TaggedBlock(Block):
         return True
 
 
-class BlockClose(TaggedBlock):
-    def __init__(self):
-        super().__init__(BLOCK_T_CLOSE)
-
-
-class BlockNext(TaggedBlock):
-    def __init__(self):
-        super().__init__(BLOCK_T_BLOCK_NEXT)
-
-
-class BlockRetrans(TaggedBlock):
-    def __init__(self):
-        super().__init__(BLOCK_T_BLOCK_RETRANS)
-
-
 class BlockAnswer(Block):
-    def __init__(self):
+    def __init__(self, code):
         super().__init__(BLOCK_T_ANSWER)
-        self.res_code = RESULT_OK
+        self.res_code = code
     
     @property
     def res_code(self):
@@ -245,141 +216,292 @@ class Frame:
             packet = packet[bytes_written:]
 
 
-def receive_file(f, data_in):
-    open_block = BlockOpenSend()
-    data_block = BlockData()
-    last_block = BlockLastData()
-    close_block = BlockClose()
-    answer_block = BlockAnswer()
-    answer_block.res_code = RESULT_OK
+class Transaction:
+    def __init__(self, block, proc_func):
+        self.block = block
+        self.proc_func = proc_func
+
+    @property
+    def block(self):
+        return self.__block
+
+    @block.setter
+    def block(self, value):
+        self.__block = value
+
+    @property
+    def proc_func(self):
+        return self.__proc_func
+
+    @proc_func.setter
+    def proc_func(self, value):
+        self.__proc_func = value
     
-    if not open_block.recognize(data_in):
-        print(f"Expected block {open_block.id}, got {data_in[0]}")
-        answer_block.res_code = RESULT_FAILURE
-        answer_block.send(f)          
-        return
+    def next_state(self, state_machine):
+        pass
 
-    if not open_block.parse(data_in):
-        print(f"Could not parse open request")
-        answer_block.res_code = RESULT_FAILURE
-        answer_block.send(f)          
-        return
 
-    answer_block.send(f)
-    print(f"Open request for file {open_block.file_name}")
+class FileSender:
+    def __init__(self):
+        self._current_block = 0
+        self._num_blocks = 0
+        self._file_data = bytes()
+        self._file_name = ""
+        self._weely_state = False
+        self._last_block_send = False
+    
+    @property
+    def last_block(self):
+        return self._last_block_send
 
-    stop = False
-    while not stop:
-        data_in = f.read()
+    def open(self, block, frame):
+        terminate = False
 
-        if data_block.recognize(data_in):
-            if not data_block.parse(data_in):
-                answer_block.res_code = RESULT_FAILURE
-                answer_block.send(f)
-                stop = True
-                
-            print(binascii.hexlify(data_block.data))
-            answer_block.send(f)
-        elif last_block.recognize(data_in):
-            if not last_block.parse(data_in):
-                answer_block.res_code = RESULT_FAILURE
-                answer_block.send(f)
-                stop = True
-                
-            print(binascii.hexlify(last_block.data))
-            answer_block.send(f)
-            stop = True
+        try:
+            self._file_name = block.file_name
+            print(f"Sending file '{block.file_name}'")
+            with open(block.file_name, "rb") as f:
+                self._file_data = f.read()
+            
+            BlockAnswer(RESULT_OK).send(frame)
+            self._current_block = -1
+        except:
+            BlockAnswer(RESULT_FAILURE).send(frame)
+            print(f"Unable to open '{block.file_name}'")
+            terminate = True
+        
+        return terminate
+
+    def send_current_block(self, block, frame):        
+        if self._current_block < 0:
+            BlockAnswer(RESULT_FAILURE).send(frame)
+            print(f"Unable to send block {self._current_block}")
+            return True
+
+        answer = BaseBlockData(BLOCK_T_DATA)
+
+        if ((self._current_block + 1) * BLOCK_SIZE) >= len(self._file_data):
+            answer = BaseBlockData(BLOCK_T_DATA_LAST) 
+            self._last_block_send = True
+        
+        start_index = self._current_block * BLOCK_SIZE
+        answer.data = self._file_data[start_index:start_index + BLOCK_SIZE]
+        answer.send(frame)        
+
+        return False
+
+    def send_next_block(self, block, frame):
+        self._weely_state = not self._weely_state
+        if not self._weely_state:
+            sys.stdout.write(".")
+            sys.stdout.flush()
+        
+        self._current_block += 1
+        return self.send_current_block(block, frame)
+
+    def close(self, block, frame):
+        BlockAnswer(RESULT_OK).send(frame)
+        print()
+        print(f"Transfer of '{self._file_name}' successfull")
+        
+        return False
+
+
+class FileReceiver:
+    def __init__(self):
+        self._open_file = None
+        self._file_name = ""
+        self._weely_state = False
+
+    def open(self, block, frame):
+        terminate = False
+
+        try:
+            print(f"Receiving file '{block.file_name}'")
+            self._open_file = open(block.file_name, "wb")
+            self._file_name = block.file_name
+            BlockAnswer(RESULT_OK).send(frame)
+        except:
+            BlockAnswer(RESULT_FAILURE).send(frame)
+            print(f"Unable to open '{block.file_name}'")
+            terminate = True
+        
+        return terminate
+
+    def close(self, block, frame):
+        terminate = False
+
+        try:
+            self._open_file.close()
+            BlockAnswer(RESULT_OK).send(frame)
+            print()
+            print(f"Transfer of '{self._file_name}' successfull")
+        except:
+            BlockAnswer(RESULT_FAILURE).send(frame)
+            terminate = True
+        
+        return terminate
+
+    def write_block(self, block, frame):
+        terminate = False
+        self._weely_state = not self._weely_state
+
+        if not self._weely_state:
+            sys.stdout.write(".")
+            sys.stdout.flush()
+
+        try:            
+            self._open_file.write(block.data)
+            BlockAnswer(RESULT_OK).send(frame)
+        except:
+            BlockAnswer(RESULT_FAILURE).send(frame)
+            terminate = True
+
+        return terminate
+
+
+class OpenTransaction(Transaction):
+    def __init__(self, open_type, file_proc):
+        super().__init__(BaseBlockOpen(open_type), file_proc.open)
+    
+    def next_state(self, state_machine):
+        state_machine.next_state(STATE_NAME_OPENED)
+
+
+class BlockReceiveTransaction(Transaction):
+    def __init__(self, data_block_type, file_receiver):
+        super().__init__(BaseBlockData(data_block_type), file_receiver.write_block)
+    
+    def next_state(self, state_machine):
+        if self.block.id == BLOCK_T_DATA:
+            state_machine.next_state(STATE_NAME_OPENED)
         else:
-            print(f"Unexpected block {data_in[0]}")
-            answer_block.res_code = RESULT_FAILURE
-            answer_block.send(f)
-            stop = True
+            state_machine.next_state(STATE_NAME_CLOSING)
 
-    data_in = f.read()
-    if not close_block.recognize(data_in):
-        print(f"Unexpected block {data_in[0]}")
-        answer_block.res_code = RESULT_FAILURE
-        answer_block.send(f)        
-    else:
-        answer_block.send(f)
-        print("Received close request")    
+
+class BlockCloseTransaction(Transaction):
+    def __init__(self, file_proc):
+        super().__init__(TaggedBlock(BLOCK_T_CLOSE), file_proc.close)
+    
+    def next_state(self, state_machine):
+        state_machine.end()
+
+
+class BlockSendNextTransaction(Transaction):
+    def __init__(self, file_sender):
+        super().__init__(TaggedBlock(BLOCK_T_BLOCK_NEXT), file_sender.send_next_block)
+        self._f_sender = file_sender
+    
+    def next_state(self, state_machine):
+        if self._f_sender.last_block:
+            state_machine.next_state(STATE_NAME_CLOSING)
+        else:
+            state_machine.next_state(STATE_NAME_OPENED)
+
+
+class BlockSendCurrentTransaction(Transaction):
+    def __init__(self, file_sender):
+        super().__init__(TaggedBlock(BLOCK_T_BLOCK_RETRANS), file_sender.send_current_block)
+        self._f_sender = file_sender
+    
+    def next_state(self, state_machine):
+        if self._f_sender.last_block:
+            state_machine.next_state(STATE_NAME_CLOSING)
+        else:
+            state_machine.next_state(STATE_NAME_OPENED)
+
+
+class State:
+    def __init__(self, name, transactions):
+        self._transactions = transactions
+        self._name = name
+
+    @property
+    def name(self):
+        return self._name
+
+    def process(self, data, frame, state_machine):
+        found = False
+
+        for i in self._transactions:
+            if i.block.recognize(data):
+                found = True
+
+                if not i.block.verify_crc(data):
+                    print("CRC Error. Requesting retransmssion.")
+                    BlockAnswer(RESULT_RETRANSMIT).send(frame)
+                    break
+
+                if not i.block.parse(data):
+                    print("Unable to parse block.")
+                    BlockAnswer(RESULT_FAILURE).send(frame)
+                    state_machine.end()
+                    break
+                
+                terminate = i.proc_func(i.block, frame)
+                if terminate:
+                    print("Processing error. Stopping transfer.")
+                    state_machine.end()
+                else:
+                    i.next_state(state_machine)
+        
+        if not found:
+            print("Unexpected block. Stopping transfer.")
+            BlockAnswer(RESULT_FAILURE).send(frame)
+            state_machine.end()
+                
+
+class StateMachine:
+    def __init__(self, states, state_start):
+        self._states = {}
+        self._do_end = False
+
+        for i in states:
+            self._states[i.name] = i
+
+        self._state = self._states[state_start]
+    
+    def run(self, data, frame):
+        self._state.process(data, frame, self)
+        self._run_internal(frame)
+
+    def _run_internal(self, frame):
+        while not self._do_end:
+            data = frame.read()
+            self._state.process(data, frame, self)
+    
+    def next_state(self, state_name):
+        self._state = self._states[state_name]
+
+    def end(self):
+        self._do_end = True
+
+
+def receive_file(f, data_in):
+    receiver = FileReceiver()
+    wait_open_state = State(STATE_NAME_WAIT_OPEN, [OpenTransaction(BLOCK_T_OPEN_SEND, receiver)])
+    opened_state = State(STATE_NAME_OPENED, [BlockReceiveTransaction(BLOCK_T_DATA, receiver), BlockReceiveTransaction(BLOCK_T_DATA_LAST, receiver)])
+    closing_state = State(STATE_NAME_CLOSING, [BlockCloseTransaction(receiver)])
+
+    state_machine = StateMachine([wait_open_state, opened_state, closing_state], STATE_NAME_WAIT_OPEN)
+    state_machine.run(data_in, f)
 
 
 def send_file(f, data_in):
-    open_block = BlockOpenReceive()
-    data_block = BlockData()
-    last_block = BlockLastData()
-    next_request = BlockNext()
-    close_block = BlockClose()
-    answer_block = BlockAnswer()
-    answer_block.res_code = RESULT_OK
+    sender = FileSender()
+    wait_open_state = State(STATE_NAME_WAIT_OPEN, [OpenTransaction(BLOCK_T_OPEN_RECEIVE, sender)])
+    opened_state = State(STATE_NAME_OPENED, [BlockSendCurrentTransaction(sender), BlockSendNextTransaction(sender)])
+    closing_state = State(STATE_NAME_CLOSING, [BlockSendCurrentTransaction(sender), BlockCloseTransaction(sender)])
 
-    if not open_block.recognize(data_in):
-        print(f"Expected block {open_block.id}, got {data_in[0]}")
-        answer_block.res_code = RESULT_FAILURE
-        answer_block.send(f)          
-        return
-
-    if not open_block.parse(data_in):
-        print(f"Could not parse open request")
-        answer_block.res_code = RESULT_FAILURE
-        answer_block.send(f)          
-        return
-
-    answer_block.send(f)
-    print(f"Open request for file {open_block.file_name}")
-
-    # request first block
-    data_in = f.read()
-
-    if not next_request.recognize(data_in):
-        print(f"Expected block {open_block.id}, got {data_in[0]}")
-        answer_block.res_code = RESULT_FAILURE
-        answer_block.send(f)          
-        return
-
-    if not next_request.parse(data_in):
-        print(f"Could not parse request for block")
-        answer_block.res_code = RESULT_FAILURE
-        answer_block.send(f)          
-        return
-
-    data_block.data = [0] * 128
-    data_block.send(f)
-
-    # request second block
-    data_in = f.read()
-
-    if not next_request.recognize(data_in):
-        print(f"Expected block {open_block.id}, got {data_in[0]}")
-        answer_block.res_code = RESULT_FAILURE
-        answer_block.send(f)          
-        return
-
-    if not next_request.parse(data_in):
-        print(f"Could not parse request for block")
-        answer_block.res_code = RESULT_FAILURE
-        answer_block.send(f)          
-        return
-
-    last_block.data = [1] * 23
-    last_block.send(f)
-
-    data_in = f.read()
-    if not close_block.recognize(data_in):
-        print(f"Unexpected block {data_in[0]}")
-        answer_block.res_code = RESULT_FAILURE
-        answer_block.send(f)        
-    else:
-        answer_block.send(f)
-        print("Received close request")
+    state_machine = StateMachine([wait_open_state, opened_state, closing_state], STATE_NAME_WAIT_OPEN)
+    state_machine.run(data_in, f)
 
 
-if __name__ == "__main__":
-    print("Beware: This piece of software is in an intermediate state and is *not* useful at the moment!")
-    open_send = BlockOpenSend()
-    open_receive = BlockOpenReceive()
-    answer_block = BlockAnswer()
+def main():
+    print("******* dcopy: Drive aware file copy 0.9.0 *******")
+    print()
+    open_send = BaseBlockOpen(BLOCK_T_OPEN_SEND)
+    open_receive = BaseBlockOpen(BLOCK_T_OPEN_RECEIVE)
     p = serial.Serial("/dev/ttyUSB1", 115200)
     f = Frame(p)
 
@@ -389,7 +511,15 @@ if __name__ == "__main__":
             receive_file(f, data_in)
         elif open_receive.recognize(data_in):
             send_file(f, data_in)
-        else:                        
-            answer_block.res_code = RESULT_FAILURE
-            answer_block.send(f)
+        else:
+            BlockAnswer(RESULT_FAILURE).send(f)                        
 
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print()
+        print("Server stopped")
+    except Exception as e:
+        print(f"An exception occurred: {e}")
