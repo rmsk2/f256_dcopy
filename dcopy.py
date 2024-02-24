@@ -1,6 +1,7 @@
 import sys
 import serial
 import binascii
+import argparse
 
 BLOCK_SIZE = 128
 
@@ -242,13 +243,14 @@ class Transaction:
 
 
 class FileSender:
-    def __init__(self):
+    def __init__(self, home_dir):
         self._current_block = 0
         self._num_blocks = 0
         self._file_data = bytes()
         self._file_name = ""
         self._weely_state = False
         self._last_block_send = False
+        self._home_dir = home_dir
     
     @property
     def last_block(self):
@@ -308,10 +310,11 @@ class FileSender:
 
 
 class FileReceiver:
-    def __init__(self):
+    def __init__(self, home_dir):
         self._open_file = None
         self._file_name = ""
         self._weely_state = False
+        self._home_dir = home_dir
 
     def open(self, block, frame):
         terminate = False
@@ -477,8 +480,8 @@ class StateMachine:
         self._do_end = True
 
 
-def receive_file(f, data_in):
-    receiver = FileReceiver()
+def receive_file(f, data_in, dir):
+    receiver = FileReceiver(dir)
     wait_open_state = State(STATE_NAME_WAIT_OPEN, [OpenTransaction(BLOCK_T_OPEN_SEND, receiver)])
     opened_state = State(STATE_NAME_OPENED, [BlockReceiveTransaction(BLOCK_T_DATA, receiver), BlockReceiveTransaction(BLOCK_T_DATA_LAST, receiver)])
     closing_state = State(STATE_NAME_CLOSING, [BlockCloseTransaction(receiver)])
@@ -487,8 +490,8 @@ def receive_file(f, data_in):
     state_machine.run(data_in, f)
 
 
-def send_file(f, data_in):
-    sender = FileSender()
+def send_file(f, data_in, dir):
+    sender = FileSender(dir)
     wait_open_state = State(STATE_NAME_WAIT_OPEN, [OpenTransaction(BLOCK_T_OPEN_RECEIVE, sender)])
     opened_state = State(STATE_NAME_OPENED, [BlockSendCurrentTransaction(sender), BlockSendNextTransaction(sender)])
     closing_state = State(STATE_NAME_CLOSING, [BlockSendCurrentTransaction(sender), BlockCloseTransaction(sender)])
@@ -497,27 +500,32 @@ def send_file(f, data_in):
     state_machine.run(data_in, f)
 
 
-def main():
+def main(port, dir):
     print("******* dcopy: Drive aware file copy 0.9.0 *******")
+    print("Press Control+c to stop server")
     print()
     open_send = BaseBlockOpen(BLOCK_T_OPEN_SEND)
     open_receive = BaseBlockOpen(BLOCK_T_OPEN_RECEIVE)
-    p = serial.Serial("/dev/ttyUSB1", 115200)
+    p = serial.Serial(port, 115200)
     f = Frame(p)
 
     while True:
         data_in = f.read()
         if open_send.recognize(data_in):
-            receive_file(f, data_in)
+            receive_file(f, data_in, dir)
         elif open_receive.recognize(data_in):
-            send_file(f, data_in)
+            send_file(f, data_in, dir)
         else:
             BlockAnswer(RESULT_FAILURE).send(f)                        
 
 
 if __name__ == "__main__":
     try:
-        main()
+        parser = argparse.ArgumentParser(prog='dcopy', description='A program that allows to transfer files between your PC and your Foenix 256')
+        parser.add_argument('-p', '--port', required=True, help="Serial port to use")
+        parser.add_argument('-d', '--dir', default="./", help="Directory to use for sending and receiving files")
+        args = parser.parse_args()    
+        main(args.port, args.dir)
     except KeyboardInterrupt:
         print()
         print("Server stopped")
