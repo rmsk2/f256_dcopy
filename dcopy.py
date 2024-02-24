@@ -2,6 +2,7 @@ import sys
 import serial
 import binascii
 import argparse
+import pathlib
 
 BLOCK_SIZE = 128
 
@@ -241,6 +242,14 @@ class Transaction:
     def next_state(self, state_machine):
         pass
 
+def is_file_in_dir(d, f):
+    h1 = (d / f).resolve()
+    h2 = d.resolve()
+    
+    res = str(h1).startswith(str(h2))
+
+    return res
+
 
 class FileSender:
     def __init__(self, home_dir):
@@ -250,7 +259,7 @@ class FileSender:
         self._file_name = ""
         self._weely_state = False
         self._last_block_send = False
-        self._home_dir = home_dir
+        self._home_dir = pathlib.Path(home_dir)
     
     @property
     def last_block(self):
@@ -261,15 +270,20 @@ class FileSender:
 
         try:
             self._file_name = block.file_name
+            file_path = pathlib.Path(block.file_name)
+
+            if not is_file_in_dir(self._home_dir, file_path):
+                raise Exception("Illegal path")
+
             print(f"Sending file '{block.file_name}'")
-            with open(block.file_name, "rb") as f:
+            with open((self._home_dir / file_path).resolve(), "rb") as f:
                 self._file_data = f.read()
             
             BlockAnswer(RESULT_OK).send(frame)
             self._current_block = -1
-        except:
+        except Exception as e:
             BlockAnswer(RESULT_FAILURE).send(frame)
-            print(f"Unable to open '{block.file_name}'")
+            print(f"Unable to open '{block.file_name}' as source:", e)
             terminate = True
         
         return terminate
@@ -314,19 +328,25 @@ class FileReceiver:
         self._open_file = None
         self._file_name = ""
         self._weely_state = False
-        self._home_dir = home_dir
+        self._home_dir = pathlib.Path(home_dir)
 
     def open(self, block, frame):
         terminate = False
 
         try:
+            self._file_name = block.file_name
+            file_path = pathlib.Path(block.file_name)
+
+            if not is_file_in_dir(self._home_dir, file_path):
+                raise Exception("Illegal path")
+
             print(f"Receiving file '{block.file_name}'")
-            self._open_file = open(block.file_name, "wb")
+            self._open_file = open((self._home_dir / file_path).resolve(), "wb")
             self._file_name = block.file_name
             BlockAnswer(RESULT_OK).send(frame)
-        except:
+        except Exception as e:
             BlockAnswer(RESULT_FAILURE).send(frame)
-            print(f"Unable to open '{block.file_name}'")
+            print(f"Unable to open '{block.file_name}' as target:", e)
             terminate = True
         
         return terminate
@@ -503,6 +523,7 @@ def send_file(f, data_in, dir):
 def main(port, dir):
     print("******* dcopy: Drive aware file copy 0.9.0 *******")
     print("Press Control+c to stop server")
+    print(f"Serving from directory '{dir}'")
     print()
     open_send = BaseBlockOpen(BLOCK_T_OPEN_SEND)
     open_receive = BaseBlockOpen(BLOCK_T_OPEN_RECEIVE)
