@@ -522,7 +522,7 @@ def send_file(f, data_in, dir):
 
 
 def main(port, dir):
-    print("******* dcopy: Drive aware file copy 0.9.0 *******")
+    print("******* dcopy: Drive aware file copy 1.2.0 *******")
     print("Press Control+c to stop server")
     print(f"Serving from directory '{dir}'")
     print()

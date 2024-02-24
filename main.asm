@@ -24,7 +24,7 @@ FROM_LEN   .byte ?
 TO_LEN     .byte ?
 
 CAPITAL_S = 83
-BANNER1 .text "******* dcopy: Drive aware file copy 0.9.0 *******", 13, 13
+BANNER1 .text "******* dcopy: Drive aware file copy 1.2.0 *******", 13, 13
 BANNER2 .text "Enter an empty string to abort and restart", 13
 BANNER3 .text "Press RUN/STOP or Control+C to reset to BASIC", 13
 BANNER4 .text "If you want to use the serial device, start the server now!", 13, 13
