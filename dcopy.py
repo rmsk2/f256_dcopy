@@ -242,6 +242,7 @@ class Transaction:
     def next_state(self, state_machine):
         pass
 
+
 def is_file_in_dir(d, f):
     h1 = (d / f).resolve()
     h2 = d.resolve()
