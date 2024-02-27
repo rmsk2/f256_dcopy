@@ -468,6 +468,8 @@ class State:
                     state_machine.end()
                 else:
                     i.next_state(state_machine)
+                
+                break
         
         if not found:
             print("Unexpected block. Stopping transfer.")
