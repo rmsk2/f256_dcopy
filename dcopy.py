@@ -218,30 +218,6 @@ class Frame:
             packet = packet[bytes_written:]
 
 
-class Transaction:
-    def __init__(self, block, proc_func):
-        self.block = block
-        self.proc_func = proc_func
-
-    @property
-    def block(self):
-        return self.__block
-
-    @block.setter
-    def block(self, value):
-        self.__block = value
-
-    @property
-    def proc_func(self):
-        return self.__proc_func
-
-    @proc_func.setter
-    def proc_func(self, value):
-        self.__proc_func = value
-    
-    def next_state(self, state_machine):
-        pass
-
 
 def is_file_in_dir(d, f):
     h1 = (d / f).resolve()
@@ -384,7 +360,32 @@ class FileReceiver:
         return terminate
 
 
-class OpenTransaction(Transaction):
+class Reaction:
+    def __init__(self, block, proc_func):
+        self.block = block
+        self.proc_func = proc_func
+
+    @property
+    def block(self):
+        return self.__block
+
+    @block.setter
+    def block(self, value):
+        self.__block = value
+
+    @property
+    def proc_func(self):
+        return self.__proc_func
+
+    @proc_func.setter
+    def proc_func(self, value):
+        self.__proc_func = value
+    
+    def next_state(self, state_machine):
+        pass
+
+
+class OpenReaction(Reaction):
     def __init__(self, open_type, file_proc):
         super().__init__(BaseBlockOpen(open_type), file_proc.open)
     
@@ -392,7 +393,7 @@ class OpenTransaction(Transaction):
         state_machine.next_state(STATE_NAME_OPENED)
 
 
-class BlockReceiveTransaction(Transaction):
+class BlockReceiveReaction(Reaction):
     def __init__(self, data_block_type, file_receiver):
         super().__init__(BaseBlockData(data_block_type), file_receiver.write_block)
     
@@ -403,7 +404,7 @@ class BlockReceiveTransaction(Transaction):
             state_machine.next_state(STATE_NAME_CLOSING)
 
 
-class BlockCloseTransaction(Transaction):
+class BlockCloseReaction(Reaction):
     def __init__(self, file_proc):
         super().__init__(TaggedBlock(BLOCK_T_CLOSE), file_proc.close)
     
@@ -411,7 +412,7 @@ class BlockCloseTransaction(Transaction):
         state_machine.end()
 
 
-class BlockSendNextTransaction(Transaction):
+class BlockSendNextReaction(Reaction):
     def __init__(self, file_sender):
         super().__init__(TaggedBlock(BLOCK_T_BLOCK_NEXT), file_sender.send_next_block)
         self._f_sender = file_sender
@@ -423,7 +424,7 @@ class BlockSendNextTransaction(Transaction):
             state_machine.next_state(STATE_NAME_OPENED)
 
 
-class BlockSendCurrentTransaction(Transaction):
+class BlockSendCurrentReaction(Reaction):
     def __init__(self, file_sender):
         super().__init__(TaggedBlock(BLOCK_T_BLOCK_RETRANS), file_sender.send_current_block)
         self._f_sender = file_sender
@@ -436,8 +437,8 @@ class BlockSendCurrentTransaction(Transaction):
 
 
 class State:
-    def __init__(self, name, transactions):
-        self._transactions = transactions
+    def __init__(self, name, reactions):
+        self._reactions = reactions
         self._name = name
 
     @property
@@ -447,7 +448,7 @@ class State:
     def process(self, data, frame, state_machine):
         found = False
 
-        for i in self._transactions:
+        for i in self._reactions:
             if i.block.recognize(data):
                 found = True
 
@@ -505,9 +506,9 @@ class StateMachine:
 
 def receive_file(f, data_in, dir):
     receiver = FileReceiver(dir)
-    wait_open_state = State(STATE_NAME_WAIT_OPEN, [OpenTransaction(BLOCK_T_OPEN_SEND, receiver)])
-    opened_state = State(STATE_NAME_OPENED, [BlockReceiveTransaction(BLOCK_T_DATA, receiver), BlockReceiveTransaction(BLOCK_T_DATA_LAST, receiver)])
-    closing_state = State(STATE_NAME_CLOSING, [BlockCloseTransaction(receiver)])
+    wait_open_state = State(STATE_NAME_WAIT_OPEN, [OpenReaction(BLOCK_T_OPEN_SEND, receiver)])
+    opened_state = State(STATE_NAME_OPENED, [BlockReceiveReaction(BLOCK_T_DATA, receiver), BlockReceiveReaction(BLOCK_T_DATA_LAST, receiver)])
+    closing_state = State(STATE_NAME_CLOSING, [BlockCloseReaction(receiver)])
 
     state_machine = StateMachine([wait_open_state, opened_state, closing_state], STATE_NAME_WAIT_OPEN)
     state_machine.run(data_in, f)
@@ -515,9 +516,9 @@ def receive_file(f, data_in, dir):
 
 def send_file(f, data_in, dir):
     sender = FileSender(dir)
-    wait_open_state = State(STATE_NAME_WAIT_OPEN, [OpenTransaction(BLOCK_T_OPEN_RECEIVE, sender)])
-    opened_state = State(STATE_NAME_OPENED, [BlockSendCurrentTransaction(sender), BlockSendNextTransaction(sender)])
-    closing_state = State(STATE_NAME_CLOSING, [BlockSendCurrentTransaction(sender), BlockCloseTransaction(sender)])
+    wait_open_state = State(STATE_NAME_WAIT_OPEN, [OpenReaction(BLOCK_T_OPEN_RECEIVE, sender)])
+    opened_state = State(STATE_NAME_OPENED, [BlockSendCurrentReaction(sender), BlockSendNextReaction(sender)])
+    closing_state = State(STATE_NAME_CLOSING, [BlockSendCurrentReaction(sender), BlockCloseReaction(sender)])
 
     state_machine = StateMachine([wait_open_state, opened_state, closing_state], STATE_NAME_WAIT_OPEN)
     state_machine.run(data_in, f)
