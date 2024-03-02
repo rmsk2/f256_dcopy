@@ -473,7 +473,7 @@ class State:
                 break
         
         if not found:
-            print("Unexpected block. Stopping transfer.")
+            print(f"State '{self.name}': Unexpected block with id {data[0]}. Stopping transfer.")
             BlockAnswer(RESULT_FAILURE).send(frame)
             state_machine.end()
                 
@@ -507,7 +507,7 @@ class StateMachine:
 def receive_file(f, data_in, dir):
     receiver = FileReceiver(dir)
     wait_open_state = State(STATE_NAME_WAIT_OPEN, [OpenReaction(BLOCK_T_OPEN_SEND, receiver)])
-    opened_state = State(STATE_NAME_OPENED, [BlockReceiveReaction(BLOCK_T_DATA, receiver), BlockReceiveReaction(BLOCK_T_DATA_LAST, receiver)])
+    opened_state = State(STATE_NAME_OPENED, [BlockReceiveReaction(BLOCK_T_DATA, receiver), BlockReceiveReaction(BLOCK_T_DATA_LAST, receiver), BlockCloseReaction(receiver)])
     closing_state = State(STATE_NAME_CLOSING, [BlockCloseReaction(receiver)])
 
     state_machine = StateMachine([wait_open_state, opened_state, closing_state], STATE_NAME_WAIT_OPEN)
