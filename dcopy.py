@@ -361,7 +361,7 @@ class FileSender:
         else:
             BlockAnswer(RESULT_FAILURE).send(frame)
             print()
-            print(f"Transfer of '{self._file_name}' failed. Number of bytes copied does not match! Remote says it sent {block.bytes_processed} bytes.")
+            print(f"Transfer of '{self._file_name}' failed. Number of bytes copied does not match! Remote says it got {block.bytes_processed} bytes.")
             terminate = True
         
         return terminate
