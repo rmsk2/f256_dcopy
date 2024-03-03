@@ -37,7 +37,7 @@ options:
 
 Specify the COM-port to use via the `-p` or `--port` options. The `-d` or `--dir` options can be used to 
 determine a "home directory" for the server where files sent from or requested by the F256 are stored. If 
-neither `-d` nor `--dir` is given then the current directory is used aa a "home directory". 
+neither `-d` nor `--dir` is given then the current directory is used as a "home directory". 
 
 # Caveats
 
@@ -58,5 +58,5 @@ data between drives 0, 1 and 2 then it does not matter whether you have a WiFi b
 
 File transfer via the serial interface at 115200 BPS seems to be a little bit faster than reading from
 SD card. I.e. reading a file of 301 blocks from an SD card takes about 11 seconds. Copying the same file
-via `dcopy` over a serial lone takes about 20 seconds, i.e. the serial transfer is a bit faster than
+via `dcopy` over a serial line takes about 20 seconds, i.e. the serial transfer is a bit faster than
 reading from SD card.

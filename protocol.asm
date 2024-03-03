@@ -217,21 +217,14 @@ _doneOK
 _doneError    
     rts
 
-DATA_BLOCK_TYPE .byte ?
+
 sendBlock
-    lda #BLOCK_T_DATA
-    sta DATA_BLOCK_TYPE
     #moveWord FileState_t, dataPtr, TEMP_PTR
     #load16BitImmediate BUFFER_SEND.dataBlock.data, TEMP_PTR2
     #loadByte FileState_t, dataLen
     sta BUFFER_SEND.dataBlock.dataLen
     jsr memcpyCall
-    jsr file.waslastBlock
-    beq _doTransact
-    lda #BLOCK_T_DATA_LAST
-    sta DATA_BLOCK_TYPE
-_doTransact
-    #transactBlockSendAddr dataBlock, DATA_BLOCK_TYPE
+    #transactBlockSend dataBlock, BLOCK_T_DATA
     rts
 
 .endnamespace

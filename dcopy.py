@@ -507,10 +507,9 @@ class StateMachine:
 def receive_file(f, data_in, dir):
     receiver = FileReceiver(dir)
     wait_open_state = State(STATE_NAME_WAIT_OPEN, [OpenReaction(BLOCK_T_OPEN_SEND, receiver)])
-    opened_state = State(STATE_NAME_OPENED, [BlockReceiveReaction(BLOCK_T_DATA, receiver), BlockReceiveReaction(BLOCK_T_DATA_LAST, receiver), BlockCloseReaction(receiver)])
-    closing_state = State(STATE_NAME_CLOSING, [BlockCloseReaction(receiver)])
+    opened_state = State(STATE_NAME_OPENED, [BlockReceiveReaction(BLOCK_T_DATA, receiver), BlockCloseReaction(receiver)])
 
-    state_machine = StateMachine([wait_open_state, opened_state, closing_state], STATE_NAME_WAIT_OPEN)
+    state_machine = StateMachine([wait_open_state, opened_state], STATE_NAME_WAIT_OPEN)
     state_machine.run(data_in, f)
 
 
@@ -525,7 +524,7 @@ def send_file(f, data_in, dir):
 
 
 def main(port, dir):
-    print("******* dcopy: Drive aware file copy 1.2.0 *******")
+    print("******* dcopy: Drive aware file copy 1.2.1 *******")
     print("Press Control+c to stop server")
     print(f"Serving from directory '{dir}'")
     print()
@@ -541,7 +540,9 @@ def main(port, dir):
         elif open_receive.recognize(data_in):
             send_file(f, data_in, dir)
         else:
-            BlockAnswer(RESULT_FAILURE).send(f)                        
+            BlockAnswer(RESULT_FAILURE).send(f)
+        
+        print("###############################################")
 
 
 if __name__ == "__main__":
