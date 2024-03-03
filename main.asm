@@ -15,6 +15,7 @@ jmp main
 .include "protocol.asm"
 .include "filetools.asm"
 .include "txtio.asm"
+.include "byte_count.asm"
 
 FILE_MAX_LEN = 80 - len(TXT_FROM_DRIVE) - 1
 
@@ -24,7 +25,7 @@ FROM_LEN   .byte ?
 TO_LEN     .byte ?
 
 CAPITAL_S = 83
-BANNER1 .text "******* dcopy: Drive aware file copy 1.2.1 *******", 13, 13
+BANNER1 .text "******* dcopy: Drive aware file copy 1.3.0 *******", 13, 13
 BANNER2 .text "Enter an empty string to abort and restart", 13
 BANNER3 .text "Press RUN/STOP or Control+C to reset to BASIC", 13
 BANNER4 .text "If you want to use the serial device, start the server now!", 13, 13
@@ -234,6 +235,8 @@ _goon1
 
     jsr txtio.newLine    
     #printString OK, len(OK)
+    jsr bcount.printBytes
+    #printString TXT_BYTES_COPIED, len(TXT_BYTES_COPIED)
 _cont1
     jsr txtio.newLine
     jsr txtio.newLine
@@ -255,5 +258,6 @@ _end
 FROM_NAME .fill  FILE_MAX_LEN
 TO_NAME .fill FILE_MAX_LEN
 BASIC .text "basic"
-OK .text "OK", 13
+OK .text "OK: $"
+TXT_BYTES_COPIED .text " bytes copied"
 ERROR .text "ERROR!", 13

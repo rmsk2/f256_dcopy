@@ -40,8 +40,9 @@ OpenBlock_t .struct
 .endstruct
 
 CloseBlock_t .struct
-    blockType .byte BLOCK_T_CLOSE
-    checkSum  .word ?
+    blockType      .byte BLOCK_T_CLOSE
+    bytesProcessed .long ?
+    checkSum       .word ?
 .endstruct
 
 RequestBlock_t .struct
@@ -163,6 +164,12 @@ openConnectionReceive
     rts
 
 closeConnection
+    lda bcount.BYTE_COUNT
+    sta BUFFER_SEND.closeBlock.bytesProcessed
+    lda bcount.BYTE_COUNT+1
+    sta BUFFER_SEND.closeBlock.bytesProcessed+1
+    lda bcount.BYTE_COUNT+2
+    sta BUFFER_SEND.closeBlock.bytesProcessed+2
     #transactBlockSend closeBlock, BLOCK_T_CLOSE
     rts
 

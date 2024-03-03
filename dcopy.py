@@ -145,6 +145,41 @@ class BaseBlockOpen(Block):
         return True        
 
 
+class CloseBlock(Block):
+    def __init__(self):
+        super().__init__(BLOCK_T_CLOSE)
+        self.bytes_processed = 0
+    
+    @property
+    def bytes_processed(self):
+        return self._bytes_processed
+
+    @bytes_processed.setter
+    def bytes_processed(self, value):
+        self._bytes_processed = value
+
+    @staticmethod    
+    def make_24bit_length(addr):
+        help, lo = divmod(addr, 256)
+        higher, hi = divmod(help, 256)
+        return (lo, hi, higher)
+
+    def encode(self):
+        lo, hi, higher = CloseBlock.make_24bit_length(self.bytes_processed)
+        return bytes([self.id, lo, hi, higher])
+
+    def decode(self, data):
+        if len(data) != 4:
+            return False
+        
+        if data[0] != self.id:
+            return False        
+
+        self.bytes_processed = data[1] + data[2] * 256 + data[3] * 65536
+
+        return True
+
+
 class TaggedBlock(Block):
     def __init__(self, id):
         super().__init__(id)
@@ -227,6 +262,21 @@ def is_file_in_dir(d, f):
 
     return res
 
+class ByteCounter:
+    def __init__(self):
+        self.num_bytes = 0
+    
+    @property
+    def num_bytes(self):
+        return self._num_bytes
+
+    @num_bytes.setter
+    def num_bytes(self, value):
+        self._num_bytes = value
+    
+    def add_bytes(self, bytes_to_count):
+        self.num_bytes += bytes_to_count
+
 
 class FileSender:
     def __init__(self, home_dir):
@@ -237,6 +287,8 @@ class FileSender:
         self._weely_state = False
         self._last_block_send = False
         self._home_dir = pathlib.Path(home_dir)
+        self._new_block_requested = False
+        self.byte_counter = None
     
     @property
     def last_block(self):
@@ -257,7 +309,9 @@ class FileSender:
                 self._file_data = f.read()
             
             BlockAnswer(RESULT_OK).send(frame)
+            self.byte_counter = ByteCounter()
             self._current_block = -1
+            self._new_block_requested = False
         except Exception as e:
             BlockAnswer(RESULT_FAILURE).send(frame)
             print(f"Unable to open '{block.file_name}' as source:", e)
@@ -281,6 +335,11 @@ class FileSender:
         answer.data = self._file_data[start_index:start_index + BLOCK_SIZE]
         answer.send(frame)        
 
+        if self._new_block_requested:
+            self.byte_counter.add_bytes(len(answer.data))
+
+        self._new_block_requested = False
+
         return False
 
     def send_next_block(self, block, frame):
@@ -290,14 +349,22 @@ class FileSender:
             sys.stdout.flush()
         
         self._current_block += 1
+        self._new_block_requested = True
         return self.send_current_block(block, frame)
 
     def close(self, block, frame):
-        BlockAnswer(RESULT_OK).send(frame)
-        print()
-        print(f"Transfer of '{self._file_name}' successfull")
+        terminate = False
+        if block.bytes_processed == self.byte_counter.num_bytes:
+            BlockAnswer(RESULT_OK).send(frame)
+            print()
+            print(f"Transfer of '{self._file_name}' successfull")
+        else:
+            BlockAnswer(RESULT_FAILURE).send(frame)
+            print()
+            print(f"Transfer of '{self._file_name}' failed. Number of bytes copied does not match! Remote says it sent {block.bytes_processed} bytes.")
+            terminate = True
         
-        return False
+        return terminate
 
 
 class FileReceiver:
@@ -306,6 +373,7 @@ class FileReceiver:
         self._file_name = ""
         self._weely_state = False
         self._home_dir = pathlib.Path(home_dir)
+        self.byte_counter = None
 
     def open(self, block, frame):
         terminate = False
@@ -319,6 +387,7 @@ class FileReceiver:
 
             print(f"Receiving file '{block.file_name}'")
             self._open_file = open((self._home_dir / file_path).resolve(), "wb")
+            self.byte_counter = ByteCounter()
             self._file_name = block.file_name
             BlockAnswer(RESULT_OK).send(frame)
         except Exception as e:
@@ -333,9 +402,15 @@ class FileReceiver:
 
         try:
             self._open_file.close()
-            BlockAnswer(RESULT_OK).send(frame)
-            print()
-            print(f"Transfer of '{self._file_name}' successfull")
+            if block.bytes_processed == self.byte_counter.num_bytes:
+                BlockAnswer(RESULT_OK).send(frame)
+                print()
+                print(f"Transfer of '{self._file_name}' successfull")
+            else:
+                BlockAnswer(RESULT_FAILURE).send(frame)
+                print()
+                print(f"Transfer of '{self._file_name}' failed. Number of bytes copied does not match! Remote says it sent {block.bytes_processed} bytes.")
+                terminate = True
         except:
             BlockAnswer(RESULT_FAILURE).send(frame)
             terminate = True
@@ -353,6 +428,7 @@ class FileReceiver:
         try:            
             self._open_file.write(block.data)
             BlockAnswer(RESULT_OK).send(frame)
+            self.byte_counter.add_bytes(len(block.data))
         except:
             BlockAnswer(RESULT_FAILURE).send(frame)
             terminate = True
@@ -403,9 +479,9 @@ class BlockReceiveReaction(Reaction):
 
 class BlockCloseReaction(Reaction):
     def __init__(self, file_proc):
-        super().__init__(TaggedBlock(BLOCK_T_CLOSE), file_proc.close)
+        super().__init__(CloseBlock(), file_proc.close)
     
-    def next_state(self, state_machine):
+    def next_state(self, state_machine):        
         state_machine.end()
 
 
@@ -508,6 +584,7 @@ def receive_file(f, data_in, dir):
 
     state_machine = StateMachine([wait_open_state, opened_state], STATE_NAME_WAIT_OPEN)
     state_machine.run(data_in, f)
+    print(f"{receiver.byte_counter.num_bytes} ({hex(receiver.byte_counter.num_bytes)}) bytes received")
 
 
 def send_file(f, data_in, dir):
@@ -518,10 +595,11 @@ def send_file(f, data_in, dir):
 
     state_machine = StateMachine([wait_open_state, opened_state, closing_state], STATE_NAME_WAIT_OPEN)
     state_machine.run(data_in, f)
+    print(f"{sender.byte_counter.num_bytes} ({hex(sender.byte_counter.num_bytes)}) bytes sent")
 
 
 def main(port, dir):
-    print("******* dcopy: Drive aware file copy 1.2.1 *******")
+    print("******* dcopy: Drive aware file copy 1.3.0 *******")
     print("Press Control+c to stop server")
     print(f"Serving from directory '{dir}'")
     print()

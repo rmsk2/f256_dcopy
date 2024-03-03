@@ -42,11 +42,15 @@ waslastBlock
     lda COPY_DONE
     rts
 
+LAST_BLOCK_LEN .byte 0
+
 BUFFER .fill BLOCK_SIZE
 COPY_DONE .byte 0
 ; carry set when error occured
 copy
-    stz COPY_DONE                                   ; clear flag that signals the end of the copy operation                      
+    stz COPY_DONE                                   ; clear flag that signals the end of the copy operation
+    stz LAST_BLOCK_LEN
+    jsr bcount.reset                      
     ; reset EOF marker in input file desriptor
     lda #EOF_NOT_REACHED
     sta FILE_IN.eofReached
@@ -79,17 +83,21 @@ _writeBlock
     lda #BLOCK_SIZE
     sec
     sbc FILE_IN.dataLen
-    beq _nextBlock                                  ; no data to write
+    beq _showWheely                                 ; no data to write
     sta FILE_OUT.dataLen
+    sta LAST_BLOCK_LEN
     #load16BitImmediate BUFFER, FILE_OUT.dataPtr    ; reset data buffer start address
     #writeBlock FILE_OUT
     bcc _nextBlock                                  ; block was written without error
     bra _errorClose                                 ; block write was not successfull
 _nextBlock
+    lda LAST_BLOCK_LEN
+    jsr bcount.addBlockLen
+_showWheely
     jsr progVec
     lda COPY_DONE
-    beq _readBlock                                  ; EOF was not reached => new loop iteration
-    bra _done                                       ; EOF was reached => we are done
+    bne _done                                        ; EOF was reached => we are done
+    jmp _readBlock                                   ; EOF was not reached => new loop iteration
 _errorClose
     #closeFile FILE_IN
     #closeFile FILE_OUT
