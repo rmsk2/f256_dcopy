@@ -398,10 +398,7 @@ class BlockReceiveReaction(Reaction):
         super().__init__(BaseBlockData(data_block_type), file_receiver.write_block)
     
     def next_state(self, state_machine):
-        if self.block.id == BLOCK_T_DATA:
-            state_machine.next_state(STATE_NAME_OPENED)
-        else:
-            state_machine.next_state(STATE_NAME_CLOSING)
+        state_machine.next_state(STATE_NAME_OPENED)
 
 
 class BlockCloseReaction(Reaction):
