@@ -394,8 +394,8 @@ class OpenReaction(Reaction):
 
 
 class BlockReceiveReaction(Reaction):
-    def __init__(self, data_block_type, file_receiver):
-        super().__init__(BaseBlockData(data_block_type), file_receiver.write_block)
+    def __init__(self, file_receiver):
+        super().__init__(BaseBlockData(BLOCK_T_DATA), file_receiver.write_block)
     
     def next_state(self, state_machine):
         state_machine.next_state(STATE_NAME_OPENED)
@@ -504,7 +504,7 @@ class StateMachine:
 def receive_file(f, data_in, dir):
     receiver = FileReceiver(dir)
     wait_open_state = State(STATE_NAME_WAIT_OPEN, [OpenReaction(BLOCK_T_OPEN_SEND, receiver)])
-    opened_state = State(STATE_NAME_OPENED, [BlockReceiveReaction(BLOCK_T_DATA, receiver), BlockCloseReaction(receiver)])
+    opened_state = State(STATE_NAME_OPENED, [BlockReceiveReaction(receiver), BlockCloseReaction(receiver)])
 
     state_machine = StateMachine([wait_open_state, opened_state], STATE_NAME_WAIT_OPEN)
     state_machine.run(data_in, f)
