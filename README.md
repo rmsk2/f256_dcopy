@@ -59,4 +59,6 @@ data between drives 0, 1 and 2 then it does not matter whether you have a WiFi b
 File transfer via the serial interface at 115200 BPS seems to be a little bit faster than reading from
 SD card. I.e. reading a file of 301 blocks from an SD card takes about 11 seconds. Copying the same file
 via `dcopy` over a serial line takes about 20 seconds, i.e. the serial transfer is a bit faster than
-reading from SD card.
+reading from SD card. I typically can send/receive files to/from drive 0 via RS-232 at about 4000 bytes/sec.
+When the source or the target is an IEC device (drive 1 or 2) the speed via RS-232 drops to about 400-500 
+bytes/sec.
