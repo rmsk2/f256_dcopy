@@ -3,6 +3,7 @@ import serial
 import binascii
 import argparse
 import pathlib
+import time
 
 BLOCK_SIZE = 128
 
@@ -583,8 +584,12 @@ def receive_file(f, data_in, dir):
     opened_state = State(STATE_NAME_OPENED, [BlockReceiveReaction(receiver), BlockCloseReaction(receiver)])
 
     state_machine = StateMachine([wait_open_state, opened_state], STATE_NAME_WAIT_OPEN)
+
+    time_start = time.time()
     state_machine.run(data_in, f)
-    print(f"{receiver.byte_counter.num_bytes} ({hex(receiver.byte_counter.num_bytes)}) bytes received")
+    time_end = time.time()
+
+    print(f"{receiver.byte_counter.num_bytes} ({hex(receiver.byte_counter.num_bytes)}) bytes received at {receiver.byte_counter._num_bytes / (time_end-time_start):.2f} bytes/s")
 
 
 def send_file(f, data_in, dir):
@@ -594,8 +599,12 @@ def send_file(f, data_in, dir):
     closing_state = State(STATE_NAME_CLOSING, [BlockSendCurrentReaction(sender), BlockCloseReaction(sender)])
 
     state_machine = StateMachine([wait_open_state, opened_state, closing_state], STATE_NAME_WAIT_OPEN)
+
+    time_start = time.time()
     state_machine.run(data_in, f)
-    print(f"{sender.byte_counter.num_bytes} ({hex(sender.byte_counter.num_bytes)}) bytes sent")
+    time_end = time.time()
+
+    print(f"{sender.byte_counter.num_bytes} ({hex(sender.byte_counter.num_bytes)}) bytes sent at {sender.byte_counter._num_bytes / (time_end-time_start):.2f} bytes/s")
 
 
 def main(port, dir):
