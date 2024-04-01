@@ -534,13 +534,13 @@ class State:
                 if not i.block.parse(data):
                     print("Unable to parse block.")
                     BlockAnswer(RESULT_FAILURE).send(frame)
-                    state_machine.end()
+                    state_machine.end_error()
                     break
                 
                 terminate = i.proc_func(i.block, frame)
                 if terminate:
                     print("Processing error. Stopping transfer.")
-                    state_machine.end()
+                    state_machine.end_error()
                 else:
                     i.next_state(state_machine)
                 
@@ -549,13 +549,14 @@ class State:
         if not found:
             print(f"State '{self.name}': Unexpected block with id {data[0]}. Stopping transfer.")
             BlockAnswer(RESULT_FAILURE).send(frame)
-            state_machine.end()
+            state_machine.end_error()
                 
 
 class StateMachine:
     def __init__(self, states, state_start):
         self._states = {}
         self._do_end = False
+        self._error = False
 
         for i in states:
             self._states[i.name] = i
@@ -576,6 +577,13 @@ class StateMachine:
 
     def end(self):
         self._do_end = True
+    
+    def is_error(self):
+        return self._error
+
+    def end_error(self):
+        self._do_end = True
+        self._error = True
 
 
 def receive_file(f, data_in, dir):
@@ -589,7 +597,8 @@ def receive_file(f, data_in, dir):
     state_machine.run(data_in, f)
     time_end = time.time()
 
-    print(f"{receiver.byte_counter.num_bytes} ({hex(receiver.byte_counter.num_bytes)}) bytes received at {receiver.byte_counter._num_bytes / (time_end-time_start):.2f} bytes/s")
+    if not state_machine.is_error():
+        print(f"{receiver.byte_counter.num_bytes} ({hex(receiver.byte_counter.num_bytes)}) bytes received at {receiver.byte_counter._num_bytes / (time_end-time_start):.2f} bytes/s")
 
 
 def send_file(f, data_in, dir):
@@ -604,11 +613,12 @@ def send_file(f, data_in, dir):
     state_machine.run(data_in, f)
     time_end = time.time()
 
-    print(f"{sender.byte_counter.num_bytes} ({hex(sender.byte_counter.num_bytes)}) bytes sent at {sender.byte_counter._num_bytes / (time_end-time_start):.2f} bytes/s")
+    if not state_machine.is_error():
+        print(f"{sender.byte_counter.num_bytes} ({hex(sender.byte_counter.num_bytes)}) bytes sent at {sender.byte_counter._num_bytes / (time_end-time_start):.2f} bytes/s")
 
 
 def main(port, dir):
-    print("******* dcopy: Drive aware file copy 1.3.0 *******")
+    print("******* dcopy: Drive aware file copy 1.3.1 *******")
     print("Press Control+c to stop server")
     print(f"Serving from directory '{dir}'")
     print()
