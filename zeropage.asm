@@ -1,3 +1,7 @@
+MEM_PTR1 = $9A;$9B
+MEM_PTR2 = $9C;$9D
+MEM_PTR3 = $9E;$9F
+MEM_PTR4 = $A0;$A1
 CRC = $b0;$b1
 TXT_PTR1 = $b2;/$b3
 TXT_PTR2 = $b4;/$b5

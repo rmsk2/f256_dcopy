@@ -7,17 +7,33 @@ transfer files between the F256 and a PC via an RS-232 serial connection.
 Use the provided `makefile` to build the program as a `.pgz` file which can be started through `pexec`. 
 You will need `64tass` and a `python3` interpreter in your path for the `makefile` to work.
 
+# Building dcopy
+
+You will need `64tass`, GNU make and a python3 interpreter on your machine in order to build `dcopy`.
+The default target in the `makefile` can be built by simply executing `make`. This will create
+the binary `dcopy.pgz` in the project directory. The binary then has to be copied to the internal SD 
+card of your Foenix.
+
 # Usage on the F256
 
-Start the program via `pexec`, i.e enter `/- dcopy.pgz` at the BASIC prompt. `dcopy` uses a simple user
-interface which allows you to enter the drive number and file name of the file to copy *from*  and the
-same information of the file to copy *to*. While copying a dot is drawn on the screen for each block
-that has been copied. Valid drive numbers are 0, 1, 2 and S, where S is to be used when a file transfer
-via RS-232 is desired.
+`dcopy` uses a simple user interface which allows you to enter the drive number and file name of the file to 
+copy *from*  and the same information of the file to copy *to*. While copying a dot is drawn on the screen 
+for each block that has been copied. Valid drive numbers are 0, 1, 2 and S, where S is to be used when a 
+file transfer via RS-232 is desired.
 
 Entering information can be aborted by simply entering an empty string into any of the text entry boxes.
-When you press `Control+c` or the `RUN/STOP` key `dcopy` executes a soft reset which brings up the 
-BASIC prompt again.
+When you press `Control+c` or the `RUN/STOP` key `dcopy` exits to BASIC.
+
+## Run the pgz
+
+Start the program which is stored on your internal SD card via `pexec`, i.e enter `/- dcopy` at the BASIC prompt. 
+
+## Run from flash
+
+Alternatively you can store `dcopy` in the nonvolatile flash memory of you Foenix. In order to do that connect your 
+development machine to the USB debug port, check that the `PORT` variable in the `makefile` matches the COM port you
+use and then call `make flash`. The `makefile` will build all binaries and write the progam binary to flash block $09.
+If this works you can now start `dcopy` from flash memory using the command `/dcopy` at the BASIC or DOS prompt.
 
 # Usage on your PC
 

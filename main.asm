@@ -1,7 +1,7 @@
 .include "api.asm"
 
-; target address is $4000
-* = $4000
+; target address is $0300
+* = $0300
 .cpu "w65c02"
 
 jmp main
