@@ -4,9 +4,6 @@ A tool for the Foenix 256K and Jr. which allows to copy files from one drive to 
 it also works for copying files to another location on the same drive. Additionally it is possible to 
 transfer files between the F256 and a PC via an RS-232 serial connection.
 
-Use the provided `makefile` to build the program as a `.pgz` file which can be started through `pexec`. 
-You will need `64tass` and a `python3` interpreter in your path for the `makefile` to work.
-
 # Building dcopy
 
 You will need `64tass`, GNU make and a python3 interpreter on your machine in order to build `dcopy`.
