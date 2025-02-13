@@ -31,6 +31,7 @@ Alternatively you can store `dcopy` in the nonvolatile flash memory of you Foeni
 development machine to the USB debug port, check that the `PORT` variable in the `makefile` matches the COM port you
 use and then call `make flash`. The `makefile` will build all binaries and write the progam binary to flash block $09.
 If this works you can now start `dcopy` from flash memory using the command `/dcopy` at the BASIC or DOS prompt.
+`dcopy` is relocatable in flash memory, i.e. it can be written to an arbitrary flash block.
 
 # Usage on your PC
 

@@ -1,3 +1,5 @@
+; 24 bytes for data structure
+COPY_TAB = $80;-$98
 MEM_PTR1 = $9A;$9B
 MEM_PTR2 = $9C;$9D
 MEM_PTR3 = $9E;$9F
@@ -18,3 +20,6 @@ UART_PTR_RECV  = $c6;/$c7
 ;UNDO_PTR3 = $c8;/$c9
 FILEIO_PTR1 = $ca;/$cb
 FILEIO_PTR2 = $CC;/CD
+NUM_BYTES = $CE
+PTR_SOURCE = $CF;/$D0
+PTR_TARGET = $D1;/$D2

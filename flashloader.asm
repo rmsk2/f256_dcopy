@@ -19,6 +19,11 @@ MMU_TARGET     = (TARGET_ADDRESS / $2000) + 8
 * = LOAD_ADDRESS
 .cpu "w65c02"
 
+; Start address of your program
+PAYLOAD_START = $0300
+; Number of 8K blocks to copy from flash
+NUM_8K_BLOCKS = 1
+
 ; This is the kernel header. It must begin at LOAD_ADDRESS
 KUPHeader
 .byte $F2                                  ; signature
@@ -42,12 +47,10 @@ COUNT_PAGE = TXT_PTR1 + 1
 END_PAGE = TXT_PTR2
 COUNT_BLOCK = TXT_PTR2 + 1
 
-PTR_SOURCE = MEM_PTR1
-PTR_TARGET = MEM_PTR2
 PTR_STRUCT = MEM_PTR3
 
 BlockSpec_t .struct s, t, sp, ep
-    sourceBlock .byte 64 + \s          ; source of block to copy, i.e. a block number (>= 64) in flash memory
+    sourceBlock .byte \s               ; source of block to copy, i.e. a block number (>= 64) in flash memory
     targetBlock .byte \t               ; target of block to copy, i.e. a block in RAM (0 <= block <= 7)
     startPage   .byte \sp              ; the page number (one page = 256 bytes) where the copy operation should be copied 
     endPage     .byte \ep              ; the page number where the copy operation should stop. There are 32 pages in an 8K block
@@ -60,14 +63,8 @@ load16BitImmediate .macro  val, addr
     sta \addr+1
 .endmacro
 
-; Start address of your program
-PAYLOAD_START = $0300
-; Number of 8K blocks to copy from flash
-NUM_8K_BLOCKS = 1
 
-; Please add an entry for each 8K data block which you want to copy from flash
-BLOCK1 .dstruct BlockSpec_t, $09, 0, 3, 32  ; copy flash block $09 (block number 64 + $18) to RAM block 0. Start at offset $0300
-
+BLOCK1 .dstruct BlockSpec_t, 0, 0, 3, 32  ; copy detected flash block to RAM block 0. Start at offset $0300
 
 loader
     ; setup MMU
@@ -75,8 +72,11 @@ loader
     sta 0
     lda #%00000000                         ; enable io pages and set active page to 0
     sta 1
+
+    jsr relocate
+
     ; set struct base address
-    #load16BitImmediate BLOCK1, PTR_STRUCT
+    #load16BitImmediate COPY_TAB, PTR_STRUCT
     stz STRUCT_INDEX
     stz COUNT_BLOCK
 _loop8K
@@ -140,6 +140,47 @@ _copyPage
     lda #MMU_SOURCE - 8
     sta MMU_SOURCE
     jmp PAYLOAD_START
+
+
+copyStruct
+    lda #NUM_8K_BLOCKS
+    asl
+    asl
+    sta NUM_BYTES
+    ldy #0
+_loop
+    lda BLOCK1, y
+    sta COPY_TAB, y
+    iny
+    cpy NUM_BYTES
+    bne _loop
+    rts
+
+
+updateBlocks
+    lda #NUM_8K_BLOCKS
+    asl
+    asl
+    sta NUM_BYTES
+    ldy #0
+    lda 13
+_loop
+    sta COPY_TAB, y
+    iny
+    iny
+    iny
+    iny
+    cpy NUM_BYTES
+    beq _end
+    ina
+    bra _loop
+_end
+    rts
+
+relocate
+    jsr copyStruct
+    jsr updateBlocks
+    rts
 
 ; pad the binary out to 768 = $0300 bytes
 END_PROG
